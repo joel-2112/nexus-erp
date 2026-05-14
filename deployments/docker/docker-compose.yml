@@ -1,5 +1,3 @@
-version: "3.9"
-
 name: nexus-erp
 
 services:
@@ -22,7 +20,7 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./deployments/postgres/init:/docker-entrypoint-initdb.d
+      - ./postgres/init:/docker-entrypoint-initdb.d
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nexus"]
@@ -69,7 +67,7 @@ services:
   # KAFKA (KRaft Mode - No ZooKeeper)
   # =========================================================
   kafka:
-    image: bitnami/kafka:latest
+    image: confluentinc/cp-kafka:7.7.0
     container_name: nexus-kafka
     restart: unless-stopped
 
@@ -78,40 +76,36 @@ services:
 
     environment:
       # KRaft Settings
-      KAFKA_ENABLE_KRAFT: "yes"
-      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
-      KAFKA_CFG_NODE_ID: "1"
-
-      # Controller Configuration
-      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
 
       # Listeners
-      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
-      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
 
-      # Listener Security
-      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      # Controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
-      # Cluster Settings
-      KAFKA_KRAFT_CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      # Protocol Mapping
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
 
-      # Single Node Dev Environment
-      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
-      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
-      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      # Single Node Dev Settings
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
-      # Allow Plaintext for Local Development
-      ALLOW_PLAINTEXT_LISTENER: "yes"
+      # KRaft Cluster ID
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 10
 
     volumes:
-      - kafka_data:/bitnami/kafka
+      - kafka_data:/var/lib/kafka/data
 
     networks:
       - nexus-network
@@ -143,7 +137,7 @@ services:
 
 
   # =========================================================
-  # PGADMIN (Optional but Very Useful)
+  # PGADMIN
   # =========================================================
   pgadmin:
     image: dpage/pgadmin4:latest
