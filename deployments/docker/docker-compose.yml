@@ -11,19 +11,19 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_USER: nexus
-      POSTGRES_PASSWORD: nexus_secure_password
-      POSTGRES_DB: nexus_erp
+      POSTGRES_USER: nexus_user
+      POSTGRES_PASSWORD: nexus_password
+      POSTGRES_DB: nexus_erp_db
 
     ports:
-      - "5432:5432"
+      - "5433:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nexus"]
+      test: ["CMD-SHELL", "pg_isready -U nexus_user -d nexus_erp_db || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -145,7 +145,7 @@ services:
     restart: unless-stopped
 
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@nexuserp.local
+      PGADMIN_DEFAULT_EMAIL: eyueljoel21@gmail.com
       PGADMIN_DEFAULT_PASSWORD: admin123
 
     ports:
