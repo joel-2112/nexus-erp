@@ -1,0 +1,188 @@
+version: "3.9"
+
+name: nexus-erp
+
+services:
+
+  # =========================================================
+  # POSTGRESQL
+  # =========================================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: nexus-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_secure_password
+      POSTGRES_DB: nexus_erp
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployments/postgres/init:/docker-entrypoint-initdb.d
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - nexus-network
+
+
+
+  # =========================================================
+  # REDIS
+  # =========================================================
+  redis:
+    image: redis:7-alpine
+    container_name: nexus-redis
+    restart: unless-stopped
+
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass nexus_redis_password
+
+    ports:
+      - "6379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "nexus_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - nexus-network
+
+
+
+  # =========================================================
+  # KAFKA (KRaft Mode - No ZooKeeper)
+  # =========================================================
+  kafka:
+    image: bitnami/kafka:latest
+    container_name: nexus-kafka
+    restart: unless-stopped
+
+    ports:
+      - "9092:9092"
+
+    environment:
+      # KRaft Settings
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: "broker,controller"
+      KAFKA_CFG_NODE_ID: "1"
+
+      # Controller Configuration
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      # Listeners
+      KAFKA_CFG_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+
+      # Listener Security
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+
+      # Cluster Settings
+      KAFKA_KRAFT_CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+
+      # Single Node Dev Environment
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+
+      # Allow Plaintext for Local Development
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+    volumes:
+      - kafka_data:/bitnami/kafka
+
+    networks:
+      - nexus-network
+
+
+
+  # =========================================================
+  # KAFKA UI
+  # =========================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: nexus-kafka-ui
+    restart: unless-stopped
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+    ports:
+      - "8085:8080"
+
+    environment:
+      KAFKA_CLUSTERS_0_NAME: nexus-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+    networks:
+      - nexus-network
+
+
+
+  # =========================================================
+  # PGADMIN (Optional but Very Useful)
+  # =========================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: nexus-pgadmin
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@nexuserp.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+
+    ports:
+      - "8080:80"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+    networks:
+      - nexus-network
+
+
+
+# =========================================================
+# NETWORKS
+# =========================================================
+networks:
+  nexus-network:
+    driver: bridge
+
+
+
+# =========================================================
+# VOLUMES
+# =========================================================
+volumes:
+  postgres_data:
+  redis_data:
+  kafka_data:
+  pgadmin_data:
