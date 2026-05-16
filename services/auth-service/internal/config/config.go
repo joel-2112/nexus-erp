@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -16,15 +18,17 @@ type Config struct {
 }
 
 func Load() *Config {
+	_ = godotenv.Load("../../.env")
+
 	return &Config{
 		ServerPort: getEnv("SERVER_PORT", "8081"),
-		DBHost:     getEnv("DB_HOST", "127.0.0.1"),
-		DBPort:     getEnv("DB_PORT", "5433"),
-		DBUser:     getEnv("DB_USER", "nexus_user"),
-		DBPassword: getEnv("DB_PASSWORD", "nexus_password"),
-		DBName: getEnv("DB_NAME", "nexus_auth_db"),
+		DBHost:     getEnv("DB_HOST", ""),
+		DBPort:     getEnv("DB_PORT", ""),
+		DBUser:     getEnv("DB_USER", ""),
+		DBPassword: getEnv("DB_PASSWORD", ""),
+		DBName:     getEnv("DB_NAME", ""),
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
-		JWTSecret:  getEnv("JWT_SECRET", "nexus-dev-secret"),
+		JWTSecret:  getEnv("JWT_SECRET", ""),
 	}
 }
 

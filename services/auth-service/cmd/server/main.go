@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"auth-service/internal/config"
 	"nexus-erp/shared/pkg/logger"
 )
 
@@ -22,8 +23,11 @@ func main() {
 	zapLog, _ = zap.NewProduction()
 	defer zapLog.Sync()
 
+	// Load configuration
+	cfg := config.Load()
+
 	// Database connection
-	dbURL := "postgres://nexus_user:nexus_password@127.0.0.1:5433/nexus_erp_db?sslmode=disable"
+	dbURL := cfg.DatabaseURL()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -41,8 +45,8 @@ func main() {
 	}
 
 	zapLog.Info("Connected to PostgreSQL",
-		zap.String("host", "127.0.0.1:5433"),
-		zap.String("database", "nexus_erp_db"),
+		zap.String("host", cfg.DBHost+":"+cfg.DBPort),
+		zap.String("database", cfg.DBName),
 	)
 
 	// Gin router with custom logger middleware
@@ -57,6 +61,6 @@ func main() {
 		})
 	})
 
-	zapLog.Info("Auth Service starting", zap.String("port", "8081"))
-	r.Run(":8081")
+	zapLog.Info("Auth Service starting", zap.String("port", cfg.ServerPort))
+	r.Run(":" + cfg.ServerPort)
 }
